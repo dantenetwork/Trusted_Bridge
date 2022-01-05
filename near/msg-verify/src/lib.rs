@@ -26,11 +26,11 @@ pub trait MsgVerify{
     /// Cross contract call to `node_evaluation contract` to update the credibility of the validators by their behavior.
     /// 
     /// @param msgs The message copies to be verified.
-    /// @param requires [0~10000]. Example: 9558 means 95.58%. Minimum percent of weights for the identical copies.
+    /// @param percentage [0~10000]. Example: 9558 means 95.58%. Minimum percent of weights for the identical copies.
     /// The percentage is the weighted sum of identical copies according to the credibility of the validators.
     /// 
     /// @return The result of the verification. The `Vec` will be empty if failed.
-    fn msg_verify(&mut self, msgs: Vec<MessageVerify>, requires: u32) ->Vec<Message>;
+    fn msg_verify(&mut self, msgs: Vec<MessageVerify>, percentage: u32) ->Vec<Message>;
 }
 
 #[near_bindgen]

@@ -1,5 +1,29 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::near_bindgen;
+use near_sdk::serde::{Deserialize, Serialize};
+
+// For message verification
+#[derive(Clone, PartialEq, BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
+#[serde(tag = "type", crate = "near_sdk::serde")]
+pub struct NodeBehavior {
+    validator: String,
+    behavior: bool,
+}
+
+pub trait NodeEvaluation{
+
+    /// @notice Called from cross-chain node for re-selecting nodes for this time stage.
+    /// 
+    /// @dev Refresh the begining and end of the current time stage if the stage ended. 
+    fn select_nodes(&mut self);
+
+    /// @notice Called from `msg-verify`. Update node credibility by node behaviors after message verification.
+    /// 
+    /// @dev Use node credibility evaluation algorithm.
+    /// 
+    /// #param node_behaviors The behavior for nodes delivering one message. `True` means valid, `False` means invalid.
+    fn update_nodes(&mut self, node_behaviors: Vec<NodeBehavior>);
+}
 
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
