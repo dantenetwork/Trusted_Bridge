@@ -248,6 +248,7 @@ version = "0.1.0"
 dependencies = [
  "cross_chain",
  "near-sdk 4.0.0-pre.4",
+ "node_evaluation",
 ]
 
 [[package]]
@@ -419,6 +420,13 @@ dependencies = [
  "serde",
  "sha2",
  "sha3",
+]
+
+[[package]]
+name = "node_evaluation"
+version = "0.1.0"
+dependencies = [
+ "near-sdk 4.0.0-pre.4",
 ]
 
 [[package]]

@@ -1,12 +1,13 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::near_bindgen;
 use near_sdk::serde::{Deserialize, Serialize};
+use near_sdk::json_types::{Base58PublicKey};
 
 // For message verification
 #[derive(Clone, PartialEq, BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 #[serde(tag = "type", crate = "near_sdk::serde")]
 pub struct NodeBehavior {
-    validator: String,
+    validator: Base58PublicKey,
     behavior: bool,
 }
 
@@ -14,8 +15,8 @@ pub trait NodeEvaluation{
 
     /// @notice Called from cross-chain node for re-selecting nodes for this time stage.
     /// 
-    /// @dev Refresh the begining and end of the current time stage if the stage ended. 
-    /// Cross contract call to `cross-chain protocol contract` to `reload` new nodes
+    /// @dev Refresh the begining and end of the current time stage if the current period ended. 
+    /// Cross contract call to `cross-chain protocol contract` to `reload_validators` new nodes
     fn select_nodes(&mut self);
 
     /// @notice Called from `msg-verify`. Update node credibility by node behaviors after message verification.

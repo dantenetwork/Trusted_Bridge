@@ -8,7 +8,11 @@ use near_sdk::{
 };
 
 extern crate cross_chain;
+extern crate node_evaluation;
+
 use cross_chain::{Message, Content, MessageVerify};
+use node_evaluation::{NodeBehavior};
+
 
 const GAS_FOR_CALLBACK: Gas = Gas(5_000_000_000_000);
 const GAS_FOR_RECEIVE_MESSAGE: Gas = Gas(25_000_000_000_000 + GAS_FOR_CALLBACK.0);

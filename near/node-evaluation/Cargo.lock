@@ -356,7 +356,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "node-evaluation"
+name = "node_evaluation"
 version = "0.1.0"
 dependencies = [
  "near-sdk",

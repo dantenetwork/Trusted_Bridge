@@ -1,11 +1,11 @@
 [package]
-name = "node-evaluation"
+name = "node_evaluation"
 version = "0.1.0"
 authors = ["xiyu1984"]
 edition = "2018"
 
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 near-sdk = "4.0.0-pre.4"
