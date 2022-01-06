@@ -15,6 +15,7 @@ pub trait NodeEvaluation{
     /// @notice Called from cross-chain node for re-selecting nodes for this time stage.
     /// 
     /// @dev Refresh the begining and end of the current time stage if the stage ended. 
+    /// Cross contract call to `cross-chain protocol contract` to `reload` new nodes
     fn select_nodes(&mut self);
 
     /// @notice Called from `msg-verify`. Update node credibility by node behaviors after message verification.
