@@ -26,7 +26,7 @@ pub trait MsgVerify{
     /// The message is valid unless there are at least `requires` copies being the same.
     /// 
     /// @dev Cross contract call to get the credibility of the validators from `node_evaluation contract`.
-    /// Cross contract call to tell `cross-chain protocol contract` the result of the verification.
+    /// Return to tell `cross-chain protocol contract` the result of the verification.
     /// Cross contract call to `node_evaluation contract` to update the credibility of the validators by their behavior.
     /// 
     /// @param msgs The message copies to be verified.

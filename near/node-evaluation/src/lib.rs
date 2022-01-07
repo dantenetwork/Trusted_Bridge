@@ -25,6 +25,28 @@ pub trait NodeEvaluation{
     /// 
     /// #param node_behaviors The behavior for nodes delivering one message. `True` means valid, `False` means invalid.
     fn update_nodes(&mut self, node_behaviors: Vec<NodeBehavior>);
+
+    /// @notice Called from `msg verify contract` to get the credibilities of validators to take weighted aggregation verification of messages
+    /// 
+    /// @dev 
+    /// @param nodes Validators
+    fn get_nodes_credibility(&self, nodes: Vec<Base58PublicKey>) ->std::collections::hash_map::HashMap<Base58PublicKey, u32>;
+
+    /// @notice Called from off-chain nodes to register themselves as the cross chain nodes. 
+    /// Get node address through `env::signer_account_id()`. 
+    /// 
+    /// @dev    
+    /// 
+    /// @return True/False
+    fn register_node(&mut self) ->bool;
+
+    /// @notice Called from off-chain nodes to unregister. 
+    /// Get node address through `env::signer_account_id()`. 
+    /// 
+    /// @dev    
+    /// 
+    /// @return True/False
+    fn unregister_node(&mut self) ->bool;
 }
 
 #[near_bindgen]
