@@ -34,7 +34,7 @@ pub trait MsgVerify{
     /// The percentage is the weighted sum of identical copies according to the credibility of the validators.
     /// 
     /// @return The result of the verification. The `Vec` will be empty if failed.
-    fn msg_verify(&mut self, msgs: Vec<MessageVerify>, percentage: u32) ->Vec<Message>;
+    fn msg_verify(&mut self, msgs: std::collections::hash_map::HashMap<PublicKey, Message>, percentage: u32) -> Vec<Message>;
 }
 
 #[near_bindgen]
