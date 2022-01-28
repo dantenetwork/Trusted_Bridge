@@ -37,6 +37,7 @@ pub trait MsgVerify{
     fn msg_verify(&mut self, msgs: std::collections::hash_map::HashMap<PublicKey, Message>, percentage: u32) -> Vec<Message>;
 }
 
+
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
 pub struct Contract {
@@ -46,6 +47,12 @@ pub struct Contract {
 #[near_bindgen]
 impl Contract {
     // ADD CONTRACT METHODS HERE
+    #[init]
+    pub fn new() ->Self{
+        Self{
+            
+        }
+    }
 }
 
 /*
