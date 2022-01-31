@@ -39,9 +39,10 @@ pub trait MsgVerify{
 
 
 #[near_bindgen]
-#[derive(Default, BorshDeserialize, BorshSerialize)]
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Contract {
     // SETUP CONTRACT STATE
+    id: String,
 }
 
 #[near_bindgen]
@@ -50,8 +51,29 @@ impl Contract {
     #[init]
     pub fn new() ->Self{
         Self{
-            
+            id: "hello".to_string(),
         }
+    }
+}
+
+#[near_bindgen]
+impl MsgVerify for Contract{
+    fn msg_verify(&mut self, msgs: std::collections::hash_map::HashMap<PublicKey, Message>, percentage: u32) -> Vec<Message>{
+        let mut a = Vec::new();
+        let b = Message{
+            from_chain: "String".to_string(),
+            to_chain: "String".to_string(),
+            sender: "String".to_string(),
+            content: Content{
+                contract: "String".to_string(),
+                action: "String".to_string(),
+                data: "String".to_string(),
+            },
+        };
+
+        a.push(b);
+
+        a
     }
 }
 
