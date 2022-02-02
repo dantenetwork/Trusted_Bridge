@@ -247,6 +247,7 @@ name = "msg-verify"
 version = "0.1.0"
 dependencies = [
  "cross_chain",
+ "hex",
  "near-sdk 4.0.0-pre.4",
  "node_evaluation",
 ]

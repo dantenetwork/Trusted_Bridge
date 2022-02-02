@@ -56,9 +56,33 @@ impl Contract {
     }
 }
 
+pub trait ToHash{
+    fn to_hash(&self)->String;
+}
+
+impl ToHash for Message{
+    fn to_hash(&self)->String{
+        let mut s = self.from_chain.clone();
+        s += &self.to_chain.clone();
+        s += &self.sender.clone();
+        s += &self.content.action.clone();
+        s += &self.content.contract.clone();
+        s += &self.content.data.clone();
+
+        s = hex::encode(env::sha256(s.as_bytes()));
+        s
+    }
+}
+
 #[near_bindgen]
 impl MsgVerify for Contract{
     fn msg_verify(&mut self, msgs: std::collections::hash_map::HashMap<PublicKey, Message>, percentage: u32) -> Vec<Message>{
+        let mut keys = Vec::new();
+        for (key, value) in msgs.iter(){
+            keys.push(key);
+        }
+        
+        // for compile
         let mut a = Vec::new();
         let b = Message{
             from_chain: "String".to_string(),
