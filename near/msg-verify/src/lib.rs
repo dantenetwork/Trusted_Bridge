@@ -2,6 +2,7 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet};
 use near_sdk::json_types::{Base58PublicKey, Base64VecU8, U128};
 use near_sdk::serde::{Deserialize, Serialize};
+use near_sdk::serde_json::{self, json};
 use near_sdk::{
     env, ext_contract, log, near_bindgen, AccountId, Balance, Gas, PanicOnDefault, Promise,
     PromiseResult, PublicKey,
@@ -13,7 +14,7 @@ extern crate node_evaluation;
 use cross_chain::{Message, Content, MessageVerify};
 use node_evaluation::{NodeBehavior};
 
-
+const GAS_FOR_FUNCTION_CALL: Gas = Gas(5_000_000_000_000);
 const GAS_FOR_CALLBACK: Gas = Gas(5_000_000_000_000);
 const GAS_FOR_RECEIVE_MESSAGE: Gas = Gas(25_000_000_000_000 + GAS_FOR_CALLBACK.0);
 const NO_DEPOSIT: Balance = 0;
@@ -37,22 +38,40 @@ pub trait MsgVerify{
     fn msg_verify(&mut self, msgs: std::collections::hash_map::HashMap<PublicKey, Message>, percentage: u32) -> Vec<Message>;
 }
 
+#[ext_contract(ext_self)]
+pub trait ContractCallback{
+    fn credibility_callback(&mut self, 
+        // #[callback_unwrap]
+        // #[serializer(borsh)]
+        // md: MyData
+    );
+}
+
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Contract {
     // SETUP CONTRACT STATE
-    id: String,
+    node_ev_address: AccountId,
 }
 
 #[near_bindgen]
 impl Contract {
     // ADD CONTRACT METHODS HERE
     #[init]
-    pub fn new() ->Self{
+    pub fn new(node_eva_addr: AccountId) ->Self{
         Self{
-            id: "hello".to_string(),
+            node_ev_address: node_eva_addr,
         }
+    }
+
+    #[private]
+    pub fn credibility_callback(&mut self, 
+        // #[callback_unwrap]
+        // #[serializer(borsh)]
+        // md: MyData
+    ){
+
     }
 }
 
@@ -78,10 +97,17 @@ impl ToHash for Message{
 impl MsgVerify for Contract{
     fn msg_verify(&mut self, msgs: std::collections::hash_map::HashMap<PublicKey, Message>, percentage: u32) -> Vec<Message>{
         let mut keys = Vec::new();
-        for (key, value) in msgs.iter(){
+        for (key, _) in msgs.iter(){
             keys.push(key);
         }
-        
+
+        Promise::new(self.node_ev_address.clone())
+        .function_call("get_nodes_credibility".to_string(), 
+            json!({"nodes": keys}).to_string().as_bytes().to_vec(), 
+            0, 
+            GAS_FOR_FUNCTION_CALL)
+        .then(ext_self::credibility_callback(env::current_account_id(), 0, GAS_FOR_CALLBACK));
+
         // for compile
         let mut a = Vec::new();
         let b = Message{
