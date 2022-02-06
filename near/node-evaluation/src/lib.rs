@@ -1,13 +1,13 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::near_bindgen;
+use near_sdk::{near_bindgen, PublicKey};
 use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::json_types::{Base58PublicKey};
+// use near_sdk::json_types::{Base58PublicKey};
 
 // For message verification
 #[derive(Clone, PartialEq, BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 #[serde(tag = "type", crate = "near_sdk::serde")]
 pub struct NodeBehavior {
-    validator: Base58PublicKey,
+    validator: PublicKey,
     behavior: bool,
 }
 
@@ -30,7 +30,7 @@ pub trait NodeEvaluation{
     /// 
     /// @dev 
     /// @param nodes Validators
-    fn get_nodes_credibility(&self, nodes: Vec<Base58PublicKey>) ->std::collections::hash_map::HashMap<Base58PublicKey, u32>;
+    fn get_nodes_credibility(&self, nodes: Vec<PublicKey>) ->std::collections::hash_map::HashMap<PublicKey, u32>;
 
     /// @notice Called from off-chain nodes to register themselves as the cross chain nodes. 
     /// Get node address through `env::signer_account_id()`. 

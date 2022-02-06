@@ -1,6 +1,6 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet};
-use near_sdk::json_types::{Base58PublicKey, Base64VecU8, U128};
+use near_sdk::json_types::{Base64VecU8, U128};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::serde_json::{self, json};
 use near_sdk::{
@@ -35,7 +35,7 @@ pub trait MsgVerify{
     /// The percentage is the weighted sum of identical copies according to the credibility of the validators.
     /// 
     /// @return The result of the verification. The `Vec` will be empty if failed.
-    fn msg_verify(&mut self, msgs: std::collections::hash_map::HashMap<PublicKey, Message>, percentage: u32) -> Vec<Message>;
+    fn msg_verify(&mut self, msgs: std::collections::hash_map::HashMap<PublicKey, Message>, percentage: u32) -> Promise;
 }
 
 #[ext_contract(ext_self)]
@@ -44,7 +44,7 @@ pub trait ContractCallback{
         // #[callback_unwrap]
         // #[serializer(borsh)]
         // md: MyData
-    );
+    )->Vec<Message>;
 }
 
 
@@ -70,8 +70,27 @@ impl Contract {
         // #[callback_unwrap]
         // #[serializer(borsh)]
         // md: MyData
-    ){
+    )->Vec<Message>{
+        match env::promise_result(0){
+            PromiseResult::Successful(result) =>{
+                match near_sdk::serde_json::from_slice::<std::collections::hash_map::HashMap<PublicKey, u32>>(&result) {
+                    Ok(validator_map) => {
+                        
 
+                        // for compile
+                        let vm : Vec<Message> = Vec::new();
+                        vm
+                    }
+                    Err(err) => {
+                        log!("resolve promise result failed, {}", err);
+                        env::panic_str("in callback!, `from_slice` error!");
+                    }
+                }
+            }
+            _ =>{
+                env::panic_str("in callback!, but params error!");
+            }
+        }
     }
 }
 
@@ -95,7 +114,7 @@ impl ToHash for Message{
 
 #[near_bindgen]
 impl MsgVerify for Contract{
-    fn msg_verify(&mut self, msgs: std::collections::hash_map::HashMap<PublicKey, Message>, percentage: u32) -> Vec<Message>{
+    fn msg_verify(&mut self, msgs: std::collections::hash_map::HashMap<PublicKey, Message>, percentage: u32) -> Promise{
         let mut keys = Vec::new();
         for (key, _) in msgs.iter(){
             keys.push(key);
@@ -106,24 +125,7 @@ impl MsgVerify for Contract{
             json!({"nodes": keys}).to_string().as_bytes().to_vec(), 
             0, 
             GAS_FOR_FUNCTION_CALL)
-        .then(ext_self::credibility_callback(env::current_account_id(), 0, GAS_FOR_CALLBACK));
-
-        // for compile
-        let mut a = Vec::new();
-        let b = Message{
-            from_chain: "String".to_string(),
-            to_chain: "String".to_string(),
-            sender: "String".to_string(),
-            content: Content{
-                contract: "String".to_string(),
-                action: "String".to_string(),
-                data: "String".to_string(),
-            },
-        };
-
-        a.push(b);
-
-        a
+        .then(ext_self::credibility_callback(env::current_account_id(), 0, GAS_FOR_CALLBACK))
     }
 }
 
