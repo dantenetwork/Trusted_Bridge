@@ -4,7 +4,7 @@ use near_sdk::json_types::{Base64VecU8, U128};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::serde_json::{self, json};
 use near_sdk::{
-    env, ext_contract, log, near_bindgen, AccountId, Balance, Gas, PanicOnDefault, Promise,
+    env, ext_contract, log, near_bindgen, require, AccountId, Balance, Gas, PanicOnDefault, Promise,
     PromiseResult, PublicKey,
 };
 
@@ -41,10 +41,10 @@ pub trait MsgVerify{
 #[ext_contract(ext_self)]
 pub trait ContractCallback{
     fn credibility_callback(&mut self, 
-        // #[callback_unwrap]
-        // #[serializer(borsh)]
-        // md: MyData
-    )->Vec<Message>;
+        msgs: std::collections::hash_map::HashMap<PublicKey, Message>,
+    )->Promise;
+
+    fn result_callback(&mut self, msg: Vec<Message>) -> Vec<Message>;
 }
 
 
@@ -66,20 +66,19 @@ impl Contract {
     }
 
     #[private]
-    pub fn credibility_callback(&mut self, 
-        // #[callback_unwrap]
-        // #[serializer(borsh)]
-        // md: MyData
-    )->Vec<Message>{
+    fn credibility_callback(&mut self, 
+        msgs: std::collections::hash_map::HashMap<PublicKey, Message>,
+    )->Promise{
+        require!(env::promise_results_count() == 1);
         match env::promise_result(0){
             PromiseResult::Successful(result) =>{
                 match near_sdk::serde_json::from_slice::<std::collections::hash_map::HashMap<PublicKey, u32>>(&result) {
                     Ok(validator_map) => {
-                        
+                        // validate Messages
 
-                        // for compile
-                        let vm : Vec<Message> = Vec::new();
-                        vm
+                        // cross-call `node_evaluation::update_nodes`, set callback as `result_callback`
+                        Promise::new(self.node_ev_address.clone())
+                        
                     }
                     Err(err) => {
                         log!("resolve promise result failed, {}", err);
@@ -91,6 +90,11 @@ impl Contract {
                 env::panic_str("in callback!, but params error!");
             }
         }
+    }
+
+    #[private]
+    fn result_callback(&mut self, msg: Vec<Message>)->Vec<Message>{
+        msg
     }
 }
 
@@ -125,7 +129,7 @@ impl MsgVerify for Contract{
             json!({"nodes": keys}).to_string().as_bytes().to_vec(), 
             0, 
             GAS_FOR_FUNCTION_CALL)
-        .then(ext_self::credibility_callback(env::current_account_id(), 0, GAS_FOR_CALLBACK))
+        .then(ext_self::credibility_callback(msgs, env::current_account_id(), 0, GAS_FOR_CALLBACK))
     }
 }
 
