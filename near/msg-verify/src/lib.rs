@@ -16,11 +16,10 @@ use std::convert::TryFrom;
 use cross_chain::{Content, Message, MessageVerify};
 use node_evaluation::{NodeBehavior, NodeCredibility};
 
-const GAS_FOR_FUNCTION_CALL: Gas = Gas(5_000_000_000_000);
-const GAS_FOR_CALLBACK: Gas = Gas(5_000_000_000_000);
-const GAS_FOR_RECEIVE_MESSAGE: Gas = Gas(25_000_000_000_000 + GAS_FOR_CALLBACK.0);
+const GAS_FOR_MSG_VERIFY: Gas = Gas(30_000_000_000_000);
+const GAS_FOR_GET_NODES: Gas = Gas(20_000_000_000_000);
+const GAS_FOR_CREDIBILITY_CALLBACK: Gas = Gas(30_000_000_000_000);
 const NO_DEPOSIT: Balance = 0;
-const CHAIN_NAME: &str = "NEAR";
 
 pub trait MsgVerify {
     /// @notice Verify cross-chain message from multi-copies committed by multi-nodes.
@@ -36,11 +35,6 @@ pub trait MsgVerify {
     ///
     /// @return The result of the verification. The `Vec` will be empty if failed.
     fn msg_verify(&mut self, msgs: Vec<MessageVerify>, percentage: u32) -> Promise;
-
-    // fn aggregate_message(
-    //     msgs: Vec<MessageVerify>,
-    //     node_credibility: Vec<NodeCredibility>,
-    // ) -> HashMap<String, GroupCredibility>;
 }
 
 #[ext_contract(ext_self)]
@@ -61,6 +55,7 @@ pub trait EvaluationContract {
 pub struct Contract {
     // SETUP CONTRACT STATE
     node_ev_address: AccountId,
+    cross_contract_id: AccountId,
     credibility_weight_threshold: u32,
     // aggregation_message:
 }
@@ -68,8 +63,8 @@ pub struct Contract {
 #[derive(Clone, PartialEq, BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 #[serde(tag = "type", crate = "near_sdk::serde")]
 pub struct GroupCredibility {
-    message: Message,
-    credibility: u32,
+    // message: Message,
+    group_credibility_value: u32,
     credibility_weight: u32,
     validators: Vec<PublicKey>,
 }
@@ -78,8 +73,13 @@ pub struct GroupCredibility {
 impl Contract {
     // ADD CONTRACT METHODS HERE
     #[init]
-    pub fn init(node_eva_addr: AccountId, credibility_weight_threshold: u32) -> Self {
+    pub fn init(
+        cross_contract_id: AccountId,
+        node_eva_addr: AccountId,
+        credibility_weight_threshold: u32,
+    ) -> Self {
         Self {
+            cross_contract_id,
             node_ev_address: node_eva_addr,
             credibility_weight_threshold: credibility_weight_threshold,
         }
@@ -88,56 +88,75 @@ impl Contract {
     #[private]
     pub fn credibility_callback(&self, msgs: Vec<MessageVerify>) -> Vec<Message> {
         require!(env::promise_results_count() == 1);
+        let mut valid_message: Vec<Message> = Vec::new();
         match env::promise_result(0) {
             PromiseResult::Successful(result) => {
                 match near_sdk::serde_json::from_slice::<Vec<NodeCredibility>>(&result) {
                     Ok(validators_credibility) => {
                         // validate Messages
-                        let mut aggregation_result: HashMap<String, GroupCredibility> =
+                        let mut aggregation_result: HashMap<String, (Message, GroupCredibility)> =
                             HashMap::new();
                         let mut credibility_map: HashMap<PublicKey, u32> = HashMap::new();
                         for vc in validators_credibility {
-                            credibility_map.insert(vc.validator, vc.credibility_value);
+                            credibility_map.insert(
+                                PublicKey::try_from(vc.validator).unwrap(),
+                                vc.credibility_value,
+                            );
                         }
                         let mut total_credibility = 0;
                         for msg in msgs {
                             let hash = msg.message.to_hash();
                             let pk = PublicKey::try_from(msg.validator.0.clone()).unwrap();
                             let credibility_value = credibility_map.get(&pk).unwrap_or(&0u32);
-                            let group_info =
-                                aggregation_result.entry(hash).or_insert(GroupCredibility {
-                                    message: msg.message,
-                                    credibility: *credibility_value,
+                            let group_info = aggregation_result.entry(hash).or_insert((
+                                msg.message,
+                                GroupCredibility {
+                                    group_credibility_value: *credibility_value,
                                     credibility_weight: 0,
                                     validators: vec![pk.clone()],
-                                });
-                            if !(*group_info).validators.contains(&pk) {
-                                (*group_info).credibility += *credibility_value;
-                                (*group_info).validators.push(pk);
+                                },
+                            ));
+                            if !(*group_info).1.validators.contains(&pk) {
+                                (*group_info).1.group_credibility_value += *credibility_value;
+                                (*group_info).1.validators.push(pk);
                             }
                             total_credibility += credibility_value;
+                            log!("total_credibility: {}", total_credibility);
                         }
 
-                        let mut sort_vec: Vec<&GroupCredibility> =
-                            aggregation_result.iter().map(|value| value.1).collect();
-                        sort_vec.sort_by(|a, b| b.credibility_weight.cmp(&a.credibility_weight));
+                        let mut sort_vec: Vec<(Message, GroupCredibility)> = aggregation_result
+                            .iter()
+                            .map(|(_, value)| {
+                                let mut return_value = value.clone();
+                                return_value.1.credibility_weight =
+                                    value.1.group_credibility_value * 10000 / total_credibility;
+                                return_value
+                            })
+                            .collect();
+                        sort_vec
+                            .sort_by(|a, b| b.1.credibility_weight.cmp(&a.1.credibility_weight));
+                        log!("sort_vec len: {}", sort_vec.len());
                         let mut node_behaviors: Vec<NodeBehavior> = Vec::new();
-                        let mut valid_message: Vec<Message> = Vec::new();
-                        if sort_vec[0].credibility_weight >= self.credibility_weight_threshold {
-                            for validator in sort_vec[0].validators.iter() {
+                        log!(
+                            "credibility_weight: {}, credibility_weight_threshold: {}",
+                            sort_vec[0].1.credibility_weight,
+                            self.credibility_weight_threshold
+                        );
+                        if sort_vec[0].1.credibility_weight >= self.credibility_weight_threshold {
+                            for validator in sort_vec[0].1.validators.iter() {
                                 node_behaviors.push(NodeBehavior {
-                                    validator: validator.clone(),
+                                    validator: validator.clone().into(),
                                     behavior: true,
                                 });
                             }
-                            valid_message.push(sort_vec[0].message.clone());
+                            valid_message.push(sort_vec[0].0.clone());
                             sort_vec.remove(0);
                         }
 
                         for group in sort_vec {
-                            for validator in group.validators.iter() {
+                            for validator in group.1.validators.iter() {
                                 node_behaviors.push(NodeBehavior {
-                                    validator: validator.clone(),
+                                    validator: validator.clone().into(),
                                     behavior: false,
                                 });
                             }
@@ -147,9 +166,8 @@ impl Contract {
                             node_behaviors,
                             self.node_ev_address.clone(),
                             NO_DEPOSIT,
-                            Gas(30_000_000_000_000),
+                            env::prepaid_gas() - GAS_FOR_CREDIBILITY_CALLBACK,
                         );
-                        return valid_message;
                     }
                     Err(err) => {
                         log!("resolve promise result failed, {}", err);
@@ -161,6 +179,7 @@ impl Contract {
                 env::panic_str("in callback!, but params error!");
             }
         }
+        return valid_message;
     }
 
     #[private]
@@ -190,24 +209,25 @@ impl ToHash for Message {
 #[near_bindgen]
 impl MsgVerify for Contract {
     fn msg_verify(&mut self, msgs: Vec<MessageVerify>, percentage: u32) -> Promise {
-        let mut keys = Vec::new();
+        assert_ne!(env::predecessor_account_id(), self.cross_contract_id);
+        let mut keys: Vec<PublicKey> = Vec::new();
         for value in msgs.iter() {
             keys.push(PublicKey::try_from(value.validator.0.clone()).unwrap());
             // keys.push(value.validator.into());
         }
-        Promise::new(self.node_ev_address.clone())
-            .function_call(
-                "get_nodes_credibility".to_string(),
-                json!({ "nodes": keys }).to_string().as_bytes().to_vec(),
-                0,
-                GAS_FOR_FUNCTION_CALL,
-            )
-            .then(ext_self::credibility_callback(
-                msgs,
-                env::current_account_id(),
-                0,
-                GAS_FOR_CALLBACK,
-            ))
+        log!("msg_verify: {}", env::prepaid_gas().0);
+        ext_ec::get_nodes_credibility(
+            keys,
+            self.node_ev_address.clone(),
+            NO_DEPOSIT,
+            GAS_FOR_GET_NODES,
+        )
+        .then(ext_self::credibility_callback(
+            msgs,
+            env::current_account_id(),
+            0,
+            env::prepaid_gas() - GAS_FOR_GET_NODES - GAS_FOR_MSG_VERIFY,
+        ))
     }
 }
 
