@@ -38,7 +38,9 @@ pub trait NodeEvaluation {
     ///
     /// @dev Use node credibility evaluation algorithm.
     ///
-    /// #param trusted that is nodes delivering the trusted message, untrusted opposite is true.
+    /// @param trusted, validators delivering the trusted message;
+    /// @param untrusted, validators delivering the untrusted message;
+    /// @param exeception, validators did not reach any agreement with verification message.
     fn update_nodes(
         &mut self,
         trusted: Vec<PublicKey>,

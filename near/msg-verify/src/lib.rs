@@ -1,8 +1,5 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::collections::{LookupMap, UnorderedMap, UnorderedSet};
-use near_sdk::json_types::{Base64VecU8, U128};
 use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::serde_json::{self, json};
 use near_sdk::{
     env, ext_contract, log, near_bindgen, require, AccountId, Balance, Gas, PanicOnDefault,
     Promise, PromiseResult, PublicKey,
@@ -13,8 +10,8 @@ use std::convert::TryFrom;
 // extern crate cross_chain;
 // extern crate node_evaluation;
 
-use cross_chain::{Content, Message, MessageVerify};
-use node_evaluation::{NodeBehavior, NodeCredibility};
+use cross_chain::{Message, MessageVerify};
+use node_evaluation::NodeCredibility;
 
 const GAS_FOR_MSG_VERIFY: Gas = Gas(30_000_000_000_000);
 const GAS_FOR_GET_NODES: Gas = Gas(20_000_000_000_000);
