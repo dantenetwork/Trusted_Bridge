@@ -47,7 +47,12 @@ pub trait ContractCallback {
 #[ext_contract(ext_ec)]
 pub trait EvaluationContract {
     fn get_nodes_credibility(&self, nodes: Vec<PublicKey>) -> Vec<PublicKey, u32>;
-    fn update_nodes(&mut self, node_behaviors: Vec<NodeBehavior>);
+    fn update_nodes(
+        &mut self,
+        trusted: Vec<PublicKey>,
+        untrusted: Vec<PublicKey>,
+        exeception: Vec<(Vec<PublicKey>, u32)>,
+    );
 }
 
 #[near_bindgen]
@@ -136,34 +141,31 @@ impl Contract {
                         sort_vec
                             .sort_by(|a, b| b.1.credibility_weight.cmp(&a.1.credibility_weight));
                         log!("sort_vec len: {}", sort_vec.len());
-                        let mut node_behaviors: Vec<NodeBehavior> = Vec::new();
+                        // let mut node_behaviors: Vec<NodeBehavior> = Vec::new();
+                        let mut trusted: Vec<PublicKey> = Vec::new();
+                        let mut untrusted: Vec<PublicKey> = Vec::new();
+                        let mut exeception: Vec<(Vec<PublicKey>, u32)> = Vec::new();
                         log!(
                             "credibility_weight: {}, credibility_weight_threshold: {}",
                             sort_vec[0].1.credibility_weight,
                             self.credibility_weight_threshold
                         );
                         if sort_vec[0].1.credibility_weight >= self.credibility_weight_threshold {
-                            for validator in sort_vec[0].1.validators.iter() {
-                                node_behaviors.push(NodeBehavior {
-                                    validator: validator.clone().into(),
-                                    behavior: true,
-                                });
-                            }
                             valid_message.push(sort_vec[0].0.clone());
-                            sort_vec.remove(0);
-                        }
-
-                        for group in sort_vec {
-                            for validator in group.1.validators.iter() {
-                                node_behaviors.push(NodeBehavior {
-                                    validator: validator.clone().into(),
-                                    behavior: false,
-                                });
+                            trusted = sort_vec.remove(0).1.validators;
+                            for group in sort_vec {
+                                untrusted.extend(group.1.validators);
+                            }
+                        } else {
+                            for group in sort_vec {
+                                exeception.push((group.1.validators, group.1.credibility_weight));
                             }
                         }
                         // let promise = Promise::new(self.node_ev_address);
                         ext_ec::update_nodes(
-                            node_behaviors,
+                            trusted,
+                            untrusted,
+                            exeception,
                             self.node_ev_address.clone(),
                             NO_DEPOSIT,
                             env::prepaid_gas() - GAS_FOR_CREDIBILITY_CALLBACK,
