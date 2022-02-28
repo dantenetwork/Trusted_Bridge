@@ -12,7 +12,6 @@ near-sdk = "4.0.0-pre.4"
 cross_chain = { path = "../../../dante-cross-chain/near/contract/cross_chain" }
 node_evaluation = { path = "../node-evaluation" }
 hex = "0.4.3"
-near-sdk-sim = "4.0.0-pre.4"
 
 [profile.release]
 codegen-units = 1
