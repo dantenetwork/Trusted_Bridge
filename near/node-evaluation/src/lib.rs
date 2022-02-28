@@ -67,7 +67,7 @@ pub trait NodeEvaluation {
     /// @dev    
     ///
     /// @return True/False
-    // fn register_node(&mut self) ->bool;
+    fn register_node(&mut self);
 
     /// @notice Called from off-chain nodes to unregister.
     /// Get node address through `env::signer_account_id()`.
@@ -75,7 +75,7 @@ pub trait NodeEvaluation {
     /// @dev    
     ///
     /// @return True/False
-    fn unregister_node(&mut self) -> bool;
+    fn unregister_node(&mut self);
 }
 
 #[near_bindgen]
@@ -125,9 +125,21 @@ impl NodeEvaluation for Contract {
         }
         current_node_credibility
     }
+    // require!()
+    // TODO delegation mechanism
+    fn register_node(&mut self) {
+        let pk = &env::signer_account_pk();
+        match self.node_credibility.get(&pk) {
+            None => {
+                self.node_credibility.insert(&pk, &4000u32);
+            }
+            _ => assert!(false, "already registered"),
+        };
+    }
 
-    fn unregister_node(&mut self) -> bool {
-        true
+    fn unregister_node(&mut self) {
+        let pk = &env::signer_account_pk();
+        self.node_credibility.remove(&pk);
     }
 
     fn select_validators(&self) {}

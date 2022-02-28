@@ -108,7 +108,7 @@ impl Contract {
                         let mut total_credibility = 0;
                         for msg in msgs {
                             let hash = msg.message.to_hash();
-                            let pk = PublicKey::try_from(msg.validator.0.clone()).unwrap();
+                            let pk = msg.validator.clone();
                             let credibility_value = credibility_map.get(&pk).unwrap_or(&0u32);
                             let group_info = aggregation_result.entry(hash).or_insert((
                                 msg.message,
@@ -211,7 +211,7 @@ impl MsgVerify for Contract {
         assert_ne!(env::predecessor_account_id(), self.cross_contract_id);
         let mut keys: Vec<PublicKey> = Vec::new();
         for value in msgs.iter() {
-            keys.push(PublicKey::try_from(value.validator.0.clone()).unwrap());
+            keys.push(value.validator.clone());
             // keys.push(value.validator.into());
         }
         log!("msg_verify: {}", env::prepaid_gas().0);
