@@ -15,13 +15,6 @@ const EXECEPTION_STEP: u32 = 100;
 // For message verification
 #[derive(Clone, PartialEq, BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 #[serde(tag = "type", crate = "near_sdk::serde")]
-pub struct NodeBehavior {
-    pub validator: PublicKey,
-    pub behavior: bool,
-}
-
-#[derive(Clone, PartialEq, BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
-#[serde(tag = "type", crate = "near_sdk::serde")]
 pub struct NodeCredibility {
     pub validator: PublicKey,
     pub credibility_value: u32,
@@ -63,19 +56,14 @@ pub trait NodeEvaluation {
 
     /// @notice Called from off-chain nodes to register themselves as the cross chain nodes.
     /// Get node address through `env::signer_account_id()`.
-    ///
-    /// @dev    
-    ///
-    /// @return True/False
     fn register_node(&mut self);
 
     /// @notice Called from off-chain nodes to unregister.
     /// Get node address through `env::signer_account_id()`.
-    ///
-    /// @dev    
-    ///
-    /// @return True/False
     fn unregister_node(&mut self);
+
+    /// set the value of the credibility of the newly added validator
+    fn set_initail_credibility(&mut self, value: u32);
 }
 
 #[near_bindgen]
@@ -84,6 +72,7 @@ pub struct Contract {
     // SETUP CONTRACT STATE
     cross_contract_id: AccountId,
     vc_contract_id: AccountId,
+    initail_credibility_value: u32,
     node_credibility: UnorderedMap<PublicKey, u32>,
 }
 
@@ -91,10 +80,15 @@ pub struct Contract {
 impl Contract {
     // ADD CONTRACT METHODS HERE
     #[init]
-    pub fn inite(cross_contract_id: AccountId, vc_contract_id: AccountId) -> Self {
+    pub fn inite(
+        cross_contract_id: AccountId,
+        vc_contract_id: AccountId,
+        initail_credibility_value: u32,
+    ) -> Self {
         Self {
             cross_contract_id,
             vc_contract_id,
+            initail_credibility_value,
             node_credibility: UnorderedMap::new(b'n'),
         }
     }
@@ -125,13 +119,18 @@ impl NodeEvaluation for Contract {
         }
         current_node_credibility
     }
-    // require!()
+
+    fn set_initail_credibility(&mut self, value: u32) {
+        self.initail_credibility_value = value;
+    }
+
     // TODO delegation mechanism
     fn register_node(&mut self) {
         let pk = &env::signer_account_pk();
         match self.node_credibility.get(&pk) {
             None => {
-                self.node_credibility.insert(&pk, &4000u32);
+                self.node_credibility
+                    .insert(&pk, &self.initail_credibility_value);
             }
             _ => assert!(false, "already registered"),
         };
@@ -192,6 +191,17 @@ impl NodeEvaluation for Contract {
         }
     }
 }
+
+// Fro NodeCredibility Display
+impl std::fmt::Debug for NodeCredibility {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
+        fmt.debug_struct("NodeCredibility")
+            .field("validator", &self.validator)
+            .field("credibility_value", &self.credibility_value)
+            .finish()
+    }
+}
+
 /*
  * the rest of this file sets up unit tests
  * to run these, the command will be:

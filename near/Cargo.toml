@@ -1,0 +1,26 @@
+[package]
+name = "Trusted_Bridge"
+version = "0.0.1"
+edition = "2018"
+
+[dev-dependencies]
+near-sdk = "4.0.0-pre.4"
+near-sdk-sim = "4.0.0-pre.4"
+msg-verify = {path = './msg-verify'}
+node_evaluation = {path = './node-evaluation'}
+cross_chain = { path = "../../dante-cross-chain/near/contract/cross_chain" }
+
+[profile.release]
+codegen-units = 1
+opt-level = "z"
+lto = true
+debug = false
+panic = "abort"
+overflow-checks = true
+
+[workspace]
+# remember to include a member for each contract
+members = [
+  "msg-verify",
+  "node-evaluation",
+]
