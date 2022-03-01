@@ -15,13 +15,6 @@ const EXECEPTION_STEP: u32 = 100;
 // For message verification
 #[derive(Clone, PartialEq, BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
 #[serde(tag = "type", crate = "near_sdk::serde")]
-pub struct NodeBehavior {
-    pub validator: PublicKey,
-    pub behavior: bool,
-}
-
-#[derive(Clone, PartialEq, BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
-#[serde(tag = "type", crate = "near_sdk::serde")]
 pub struct NodeCredibility {
     pub validator: PublicKey,
     pub credibility_value: u32,
@@ -198,6 +191,17 @@ impl NodeEvaluation for Contract {
         }
     }
 }
+
+// Fro NodeCredibility Display
+impl std::fmt::Debug for NodeCredibility {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
+        fmt.debug_struct("NodeCredibility")
+            .field("validator", &self.validator)
+            .field("credibility_value", &self.credibility_value)
+            .finish()
+    }
+}
+
 /*
  * the rest of this file sets up unit tests
  * to run these, the command will be:
