@@ -158,7 +158,7 @@ impl NodeEvaluation for Contract {
         // update current trusted validators credibility
         for validator in trusted {
             let origin_node_credibility = self.node_credibility.get(&validator).unwrap_or(0);
-            if self.node_credibility.get(&validator).unwrap_or(0) >= MIDDLE_CONFIDENCE {
+            if self.node_credibility.get(&validator).unwrap_or(0) < MIDDLE_CONFIDENCE {
                 credibility_value = SUCCESS_STEP * (origin_node_credibility - MIN_CONFIDENCE)
                     / RANGE
                     + origin_node_credibility;
@@ -173,8 +173,8 @@ impl NodeEvaluation for Contract {
         // update current untrusted validators credibility
         for validator in untrusted {
             let origin_node_credibility = self.node_credibility.get(&validator).unwrap_or(0);
-            credibility_value = DO_EVIL_STEP * (MIN_CONFIDENCE - origin_node_credibility) / RANGE
-                + origin_node_credibility;
+            credibility_value = origin_node_credibility
+                - DO_EVIL_STEP * (origin_node_credibility - MIN_CONFIDENCE) / RANGE;
             self.node_credibility.insert(&validator, &credibility_value);
         }
         // update current exeception validators credibility
@@ -200,29 +200,4 @@ impl std::fmt::Debug for NodeCredibility {
             .field("credibility_value", &self.credibility_value)
             .finish()
     }
-}
-
-/*
- * the rest of this file sets up unit tests
- * to run these, the command will be:
- * cargo test --package rust-template -- --nocapture
- * Note: 'rust-template' comes from Cargo.toml's 'name' key
- */
-
-// use the attribute below for unit tests
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use near_sdk::test_utils::{get_logs, VMContextBuilder};
-    use near_sdk::{testing_env, AccountId};
-
-    // part of writing unit tests is setting up a mock context
-    // provide a `predecessor` here, it'll modify the default context
-    fn get_context(predecessor: AccountId) -> VMContextBuilder {
-        let mut builder = VMContextBuilder::new();
-        builder.predecessor_account_id(predecessor);
-        builder
-    }
-
-    // TESTS HERE
 }
