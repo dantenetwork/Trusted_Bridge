@@ -123,7 +123,6 @@ impl Contract {
                                 (*group_info).1.validators.push(pk);
                             }
                             total_credibility += credibility_value;
-                            log!("total_credibility: {}", total_credibility);
                         }
 
                         let mut sort_vec: Vec<(Message, GroupCredibility)> = aggregation_result
@@ -137,7 +136,6 @@ impl Contract {
                             .collect();
                         sort_vec
                             .sort_by(|a, b| b.1.credibility_weight.cmp(&a.1.credibility_weight));
-                        log!("sort_vec len: {}", sort_vec.len());
                         // let mut node_behaviors: Vec<NodeBehavior> = Vec::new();
                         let mut trusted: Vec<PublicKey> = Vec::new();
                         let mut untrusted: Vec<PublicKey> = Vec::new();
@@ -228,29 +226,4 @@ impl MsgVerify for Contract {
             env::prepaid_gas() - GAS_FOR_GET_NODES - GAS_FOR_MSG_VERIFY,
         ))
     }
-}
-
-/*
- * the rest of this file sets up unit tests
- * to run these, the command will be:
- * cargo test --package rust-template -- --nocapture
- * Note: 'rust-template' comes from Cargo.toml's 'name' key
- */
-
-// use the attribute below for unit tests
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use near_sdk::test_utils::{get_logs, VMContextBuilder};
-    use near_sdk::{testing_env, AccountId};
-
-    // part of writing unit tests is setting up a mock context
-    // provide a `predecessor` here, it'll modify the default context
-    fn get_context(predecessor: AccountId) -> VMContextBuilder {
-        let mut builder = VMContextBuilder::new();
-        builder.predecessor_account_id(predecessor);
-        builder
-    }
-
-    // TESTS HERE
 }
