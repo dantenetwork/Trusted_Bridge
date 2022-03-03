@@ -181,11 +181,10 @@ impl NodeEvaluation for Contract {
         for (validators, credibility_weight) in exeception {
             for validator in validators {
                 let origin_node_credibility = self.node_credibility.get(&validator).unwrap_or(0);
-                credibility_value = EXECEPTION_STEP * (MIN_CONFIDENCE - origin_node_credibility)
-                    / RANGE
-                    * (10000 - credibility_weight)
-                    / 10000
-                    + origin_node_credibility;
+                credibility_value = origin_node_credibility
+                    - EXECEPTION_STEP * (origin_node_credibility - MIN_CONFIDENCE) / RANGE
+                        * (10000 - credibility_weight)
+                        / 10000;
                 self.node_credibility.insert(&validator, &credibility_value);
             }
         }
