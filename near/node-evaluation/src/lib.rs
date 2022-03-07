@@ -11,6 +11,7 @@ const RANGE: u32 = MAX_CONFIDENCE - MIN_CONFIDENCE;
 const SUCCESS_STEP: u32 = 100;
 const DO_EVIL_STEP: u32 = 200;
 const EXECEPTION_STEP: u32 = 100;
+const PRECISION: u32 = 10_000;
 
 // For message verification
 #[derive(Clone, PartialEq, BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
@@ -64,6 +65,8 @@ pub trait NodeEvaluation {
 
     /// set the value of the credibility of the newly added validator
     fn set_initial_credibility(&mut self, value: u32);
+
+    fn update_storage_date(&mut self, pk: PublicKey, value: u32);
 }
 
 #[near_bindgen]
@@ -73,7 +76,12 @@ pub struct Contract {
     cross_contract_id: AccountId,
     vc_contract_id: AccountId,
     initial_credibility_value: u32,
+    max_trustworthy_ratio: u32,
+    min_trustworthy_ratio: u32,
+    min_seleted_threshold: u32,
+    trustworthy_threshold: u32,
     node_credibility: UnorderedMap<PublicKey, u32>,
+    trustworthy_validators: UnorderedMap<PublicKey, u32>,
 }
 
 #[near_bindgen]
@@ -84,12 +92,21 @@ impl Contract {
         cross_contract_id: AccountId,
         vc_contract_id: AccountId,
         initial_credibility_value: u32,
+        max_trustworthy_ratio: u32,
+        min_trustworthy_ratio: u32,
+        min_seleted_threshold: u32,
+        trustworthy_threshold: u32,
     ) -> Self {
         Self {
             cross_contract_id,
             vc_contract_id,
             initial_credibility_value,
+            max_trustworthy_ratio,
+            min_trustworthy_ratio,
+            min_seleted_threshold,
+            trustworthy_threshold,
             node_credibility: UnorderedMap::new(b'n'),
+            trustworthy_validators: UnorderedMap::new(b't'),
         }
     }
 
@@ -141,7 +158,30 @@ impl NodeEvaluation for Contract {
         self.node_credibility.remove(&pk);
     }
 
-    fn select_validators(&self) {}
+    fn select_validators(&self) {
+        let mut trustworthy_sum: u32 = 0;
+        let mut trustworthy_all: u32 = 0;
+        for (_, value) in self.trustworthy_validators.iter() {
+            trustworthy_sum += value
+        }
+
+        // probability of being selected
+        let mut probability_seleted: Vec<(PublicKey, u32)> = Vec::new();
+        for (validator, value) in self.trustworthy_validators.iter() {
+            let probability = PRECISION * value / trustworthy_sum;
+            if probability > self.trustworthy_threshold {
+                trustworthy_all += probability;
+            }
+            probability_seleted.push((validator, probability));
+        }
+        let total_num = self.trustworthy_validators.len() as u32;
+        let credibility_selected_num = total_num
+            * std::cmp::max(
+                std::cmp::min(trustworthy_all, self.max_trustworthy_ratio) as u32,
+                self.min_trustworthy_ratio,
+            );
+        let random_selected_num = total_num - credibility_selected_num;
+    }
 
     fn update_nodes(
         &mut self,
@@ -167,7 +207,7 @@ impl NodeEvaluation for Contract {
                     / RANGE
                     + origin_node_credibility;
             }
-            self.node_credibility.insert(&validator, &credibility_value);
+            self.update_storage_date(validator, credibility_value);
         }
 
         // update current untrusted validators credibility
@@ -175,7 +215,7 @@ impl NodeEvaluation for Contract {
             let origin_node_credibility = self.node_credibility.get(&validator).unwrap_or(0);
             credibility_value = origin_node_credibility
                 - DO_EVIL_STEP * (origin_node_credibility - MIN_CONFIDENCE) / RANGE;
-            self.node_credibility.insert(&validator, &credibility_value);
+            self.update_storage_date(validator, credibility_value);
         }
         // update current exeception validators credibility
         for (validators, credibility_weight) in exeception {
@@ -185,9 +225,19 @@ impl NodeEvaluation for Contract {
                     - EXECEPTION_STEP * (origin_node_credibility - MIN_CONFIDENCE) / RANGE
                         * (10000 - credibility_weight)
                         / 10000;
-                self.node_credibility.insert(&validator, &credibility_value);
+                self.update_storage_date(validator, credibility_value);
             }
         }
+    }
+
+    // #[private]
+    fn update_storage_date(&mut self, pk: PublicKey, value: u32) {
+        if value < self.min_seleted_threshold {
+            self.trustworthy_validators.remove(&pk);
+        } else {
+            self.trustworthy_validators.insert(&pk, &value);
+        }
+        self.node_credibility.insert(&pk, &value);
     }
 }
 
