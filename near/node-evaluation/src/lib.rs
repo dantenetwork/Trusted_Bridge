@@ -1,7 +1,9 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::UnorderedMap;
 use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::{env, near_bindgen, AccountId, PanicOnDefault, PublicKey};
+use near_sdk::{
+    env, ext_contract, near_bindgen, AccountId, Balance, Gas, PanicOnDefault, PublicKey,
+};
 // use near_sdk::json_types::{Base58PublicKey};
 
 const MIN_CONFIDENCE: u32 = 0;
@@ -12,9 +14,10 @@ const SUCCESS_STEP: u32 = 100;
 const DO_EVIL_STEP: u32 = 200;
 const EXECEPTION_STEP: u32 = 100;
 const PRECISION: u32 = 10_000;
+const NO_DEPOSIT: Balance = 0;
 
 // For message verification
-#[derive(Clone, PartialEq, BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, BorshDeserialize, BorshSerialize, Serialize, Deserialize, Debug)]
 #[serde(tag = "type", crate = "near_sdk::serde")]
 pub struct NodeCredibility {
     pub validator: PublicKey,
@@ -67,6 +70,11 @@ pub trait NodeEvaluation {
     fn set_initial_credibility(&mut self, value: u32);
 
     fn update_storage_date(&mut self, pk: PublicKey, value: u32);
+}
+
+#[ext_contract(ext_cc)]
+pub trait VerificationContract {
+    fn reload_validators(&mut self, validators: Vec<PublicKey>);
 }
 
 #[near_bindgen]
@@ -159,28 +167,36 @@ impl NodeEvaluation for Contract {
     }
 
     fn select_validators(&self) {
-        let mut trustworthy_sum: u32 = 0;
-        let mut trustworthy_all: u32 = 0;
-        for (_, value) in self.trustworthy_validators.iter() {
-            trustworthy_sum += value
-        }
+        // let mut trustworthy_sum: u32 = 0;
+        // let mut trustworthy_all: u32 = 0;
+        // for (_, value) in self.trustworthy_validators.iter() {
+        //     trustworthy_sum += value
+        // }
 
-        // probability of being selected
-        let mut probability_seleted: Vec<(PublicKey, u32)> = Vec::new();
-        for (validator, value) in self.trustworthy_validators.iter() {
-            let probability = PRECISION * value / trustworthy_sum;
-            if probability > self.trustworthy_threshold {
-                trustworthy_all += probability;
-            }
-            probability_seleted.push((validator, probability));
-        }
-        let total_num = self.trustworthy_validators.len() as u32;
-        let credibility_selected_num = total_num
-            * std::cmp::max(
-                std::cmp::min(trustworthy_all, self.max_trustworthy_ratio) as u32,
-                self.min_trustworthy_ratio,
-            );
-        let random_selected_num = total_num - credibility_selected_num;
+        // // probability of being selected
+        // let mut probability_seleted: Vec<(PublicKey, u32)> = Vec::new();
+        // for (validator, value) in self.trustworthy_validators.iter() {
+        //     let probability = PRECISION * value / trustworthy_sum;
+        //     if probability > self.trustworthy_threshold {
+        //         trustworthy_all += probability;
+        //     }
+        //     probability_seleted.push((validator, probability));
+        // }
+        // let total_num = self.trustworthy_validators.len() as u32;
+        // let credibility_selected_num = total_num
+        //     * std::cmp::max(
+        //         std::cmp::min(trustworthy_all, self.max_trustworthy_ratio) as u32,
+        //         self.min_trustworthy_ratio,
+        //     );
+        // let random_selected_num = total_num - credibility_selected_num;
+        // let get_block_hight = env::block_height();
+        let validator: Vec<PublicKey> = self.node_credibility.iter().map(|value| value.0).collect();
+        ext_cc::reload_validators(
+            validator,
+            self.cross_contract_id.clone(),
+            NO_DEPOSIT,
+            Gas(5_000_000_000_000),
+        );
     }
 
     fn update_nodes(
@@ -238,15 +254,5 @@ impl NodeEvaluation for Contract {
             self.trustworthy_validators.insert(&pk, &value);
         }
         self.node_credibility.insert(&pk, &value);
-    }
-}
-
-// Fro NodeCredibility Display
-impl std::fmt::Debug for NodeCredibility {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-        fmt.debug_struct("NodeCredibility")
-            .field("validator", &self.validator)
-            .field("credibility_value", &self.credibility_value)
-            .finish()
     }
 }

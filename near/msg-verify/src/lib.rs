@@ -31,7 +31,7 @@ pub trait MsgVerify {
     /// The percentage is the weighted sum of identical copies according to the credibility of the validators.
     ///
     /// @return The result of the verification. The `Vec` will be empty if failed.
-    fn msg_verify(&mut self, msgs: Vec<MessageVerify>, percentage: u32) -> Promise;
+    fn msg_verify(&mut self, msgs: Vec<MessageVerify>) -> Promise;
 }
 
 #[ext_contract(ext_self)]
@@ -205,8 +205,8 @@ impl ToHash for Message {
 
 #[near_bindgen]
 impl MsgVerify for Contract {
-    fn msg_verify(&mut self, msgs: Vec<MessageVerify>, percentage: u32) -> Promise {
-        assert_ne!(env::predecessor_account_id(), self.cross_contract_id);
+    fn msg_verify(&mut self, msgs: Vec<MessageVerify>) -> Promise {
+        assert_eq!(env::predecessor_account_id(), self.cross_contract_id);
         let mut keys: Vec<PublicKey> = Vec::new();
         for value in msgs.iter() {
             keys.push(value.validator.clone());

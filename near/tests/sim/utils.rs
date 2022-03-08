@@ -2,7 +2,7 @@
  * @Description:
  * @Author: kay
  * @Date: 2022-02-24 11:22:04
- * @LastEditTime: 2022-03-02 14:15:47
+ * @LastEditTime: 2022-03-08 18:02:07
  * @LastEditors: kay
  */
 // use msg_verify::Contract as VC;
@@ -16,6 +16,7 @@ use std::str::FromStr;
 
 // Load in contract bytes at runtime
 near_sdk_sim::lazy_static_include::lazy_static_include_bytes! {
+    CC_WASM_BYTES => "../../dante-cross-chain/near/contract/cross_chain/res/cross_chain.wasm",
     VC_WASM_BYTES => "res/msg_verify.wasm",
     EC_WASM_BYTES => "res/node_evaluation.wasm",
 }
@@ -27,8 +28,24 @@ const CC_ID: &str = "cc";
 pub fn init_no_macros(
     credibility_weight_threshold: u32,
     initial_crediblity_value: u32,
-) -> (UserAccount, UserAccount, UserAccount) {
+) -> (UserAccount, UserAccount, UserAccount, UserAccount) {
     let root = init_simulator(None);
+    let cc = root.deploy(&CC_WASM_BYTES, CC_ID.parse().unwrap(), to_yocto("2000"));
+    cc.call(
+        CC_ID.parse().unwrap(),
+        "new",
+        &json!({
+          "owner": CC_ID.parse::<AccountId>().unwrap(),
+          "verification_contract": VC_ID.parse::<AccountId>().unwrap(),
+          "evaluation_contract": EC_ID.parse::<AccountId>().unwrap(),
+        })
+        .to_string()
+        .into_bytes(),
+        DEFAULT_GAS / 2,
+        0,
+    )
+    .assert_success();
+
     let vc = root.deploy(&VC_WASM_BYTES, VC_ID.parse().unwrap(), to_yocto("2000"));
 
     vc.call(
@@ -53,7 +70,11 @@ pub fn init_no_macros(
         &json!({
           "cross_contract_id": CC_ID.parse::<AccountId>().unwrap(),
           "vc_contract_id": VC_ID.parse::<AccountId>().unwrap(),
-          "initial_credibility_value": initial_crediblity_value
+          "initial_credibility_value": initial_crediblity_value,
+          "max_trustworthy_ratio": 7000,
+          "min_trustworthy_ratio": 2000,
+          "min_seleted_threshold": 1000,
+          "trustworthy_threshold": 3000,
         })
         .to_string()
         .into_bytes(),
@@ -61,7 +82,7 @@ pub fn init_no_macros(
         0,
     )
     .assert_success();
-    (root, vc, ec)
+    (root, cc, vc, ec)
 }
 
 pub fn register_validators(
