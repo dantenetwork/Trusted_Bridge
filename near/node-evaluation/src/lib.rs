@@ -13,7 +13,7 @@ const RANGE: u32 = MAX_CONFIDENCE - MIN_CONFIDENCE;
 const SUCCESS_STEP: u32 = 100;
 const DO_EVIL_STEP: u32 = 200;
 const EXECEPTION_STEP: u32 = 100;
-const PRECISION: u32 = 10_000;
+// const PRECISION: u32 = 10_000;
 const NO_DEPOSIT: Balance = 0;
 
 // For message verification
@@ -195,7 +195,7 @@ impl NodeEvaluation for Contract {
             validator,
             self.cross_contract_id.clone(),
             NO_DEPOSIT,
-            Gas(5_000_000_000_000),
+            Gas(30_000_000_000_000),
         );
     }
 
