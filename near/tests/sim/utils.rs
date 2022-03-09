@@ -2,13 +2,11 @@
  * @Description:
  * @Author: kay
  * @Date: 2022-02-24 11:22:04
- * @LastEditTime: 2022-03-08 18:02:07
+ * @LastEditTime: 2022-03-09 17:44:02
  * @LastEditors: kay
  */
-// use msg_verify::Contract as VC;
-// use node_evaluation::Contract as EC;
 
-use cross_chain::{Message, MessageVerify};
+use cross_chain::{Content, Message, Sqos};
 use near_sdk::serde_json::json;
 use near_sdk::{AccountId, PublicKey};
 use near_sdk_sim::{init_simulator, to_yocto, UserAccount, DEFAULT_GAS};
@@ -24,6 +22,36 @@ near_sdk_sim::lazy_static_include::lazy_static_include_bytes! {
 const VC_ID: &str = "vc";
 const EC_ID: &str = "ec";
 const CC_ID: &str = "cc";
+
+// pub fn create_message()
+pub fn create_message() -> (Message, Message) {
+    let message_1: Message = Message {
+        from_chain: "OTHER_CHAIN".to_string(),
+        to_chain: "NEAR_CHAIN".to_string(),
+        sender: "OTHER_CHAIN_LOCKER".to_string(),
+        signer: "OTHER_CHAIN_CALLER".to_string(),
+        sqos: Sqos { reveal: false },
+        content: Content {
+            contract: "ft.shanks.testnet".to_string(),
+            action: "ft_balance_of".to_string(),
+            data: "{\"account_id\": \"shanks.testnet\"}".to_string(),
+        }, // content: "alice".to_string(),
+    };
+
+    let message_2: Message = Message {
+        from_chain: "OTHER_CHAIN".to_string(),
+        to_chain: "NEAR_CHAIN".to_string(),
+        sender: "OTHER_CHAIN_LOCKER".to_string(),
+        signer: "OTHER_CHAIN_CALLER".to_string(),
+        sqos: Sqos { reveal: false },
+        content: Content {
+            contract: "ft_shanks.testnet".to_string(),
+            action: "ft_balance_of".to_string(),
+            data: "{\"account_id\": \"other_account\"}".to_string(),
+        }, // content: "alice".to_string(),
+    };
+    (message_1, message_2)
+}
 
 pub fn init_no_macros(
     credibility_weight_threshold: u32,
@@ -110,16 +138,27 @@ pub fn register_validators(
     (validators, validators_pk)
 }
 
-pub fn validator_generate_message(
-    validators: &[PublicKey],
-    message: Message,
-) -> Vec<MessageVerify> {
-    let mut verify_msg: Vec<MessageVerify> = Vec::new();
-    for validator in validators {
-        verify_msg.push(MessageVerify {
-            validator: validator.clone(),
-            message: message.clone(),
-        })
+pub fn call_receive_message(messages: Vec<(&[UserAccount], &Message)>) {
+    let id: u32 = 1;
+    for (validators, message) in messages {
+        for validator in validators {
+            validator
+                .call(
+                    CC_ID.parse().unwrap(),
+                    "receive_message",
+                    &json!({"id": id, 
+                            "from_chain": message.from_chain,
+                            "to_chain": message.to_chain,
+                            "sender": message.sender,
+                            "signer": message.signer,
+                            "sqos": message.sqos,
+                            "content": message.content})
+                    .to_string()
+                    .into_bytes(),
+                    DEFAULT_GAS,
+                    0,
+                )
+                .assert_success();
+        }
     }
-    verify_msg
 }
