@@ -653,6 +653,7 @@ dependencies = [
 name = "cross_chain"
 version = "0.1.0"
 dependencies = [
+ "hex",
  "near-contract-standards",
  "near-sdk",
 ]

@@ -10,11 +10,11 @@ use std::convert::TryFrom;
 // extern crate cross_chain;
 // extern crate node_evaluation;
 
-use cross_chain::{Message, MessageVerify};
+use cross_chain::Message;
 use node_evaluation::NodeCredibility;
 
 const GAS_FOR_MSG_VERIFY: Gas = Gas(30_000_000_000_000);
-const GAS_FOR_GET_NODES: Gas = Gas(20_000_000_000_000);
+const GAS_FOR_GET_NODES: Gas = Gas(30_000_000_000_000);
 const GAS_FOR_CREDIBILITY_CALLBACK: Gas = Gas(30_000_000_000_000);
 const NO_DEPOSIT: Balance = 0;
 
@@ -31,12 +31,12 @@ pub trait MsgVerify {
     /// The percentage is the weighted sum of identical copies according to the credibility of the validators.
     ///
     /// @return The result of the verification. The `Vec` will be empty if failed.
-    fn msg_verify(&mut self, msgs: Vec<MessageVerify>) -> Promise;
+    fn msg_verify(&mut self, groups: Vec<(String, Vec<PublicKey>)>) -> Promise;
 }
 
 #[ext_contract(ext_self)]
 pub trait ContractCallback {
-    fn credibility_callback(&mut self, msgs: Vec<MessageVerify>) -> Promise;
+    fn credibility_callback(&mut self, groups: Vec<(String, Vec<PublicKey>)>) -> Promise;
 
     fn result_callback(&mut self, msg: Vec<Message>) -> Vec<Message>;
 }
@@ -88,15 +88,16 @@ impl Contract {
     }
 
     #[private]
-    pub fn credibility_callback(&self, msgs: Vec<MessageVerify>) -> Vec<Message> {
+    pub fn credibility_callback(&self, groups: Vec<(String, Vec<PublicKey>)>) -> Vec<String> {
         require!(env::promise_results_count() == 1);
-        let mut valid_message: Vec<Message> = Vec::new();
+        log!("credibility_callback gas used: {}", env::prepaid_gas().0);
+        let mut valid_message: Vec<String> = Vec::new();
         match env::promise_result(0) {
             PromiseResult::Successful(result) => {
                 match near_sdk::serde_json::from_slice::<Vec<NodeCredibility>>(&result) {
                     Ok(validators_credibility) => {
                         // validate Messages
-                        let mut aggregation_result: HashMap<String, (Message, GroupCredibility)> =
+                        let mut aggregation_result: HashMap<String, GroupCredibility> =
                             HashMap::new();
                         let mut credibility_map: HashMap<PublicKey, u32> = HashMap::new();
                         for vc in validators_credibility {
@@ -106,32 +107,32 @@ impl Contract {
                             );
                         }
                         let mut total_credibility = 0;
-                        for msg in msgs {
-                            let hash = msg.message.to_hash();
-                            let pk = msg.validator.clone();
-                            let credibility_value = credibility_map.get(&pk).unwrap_or(&0u32);
-                            let group_info = aggregation_result.entry(hash).or_insert((
-                                msg.message,
-                                GroupCredibility {
-                                    group_credibility_value: *credibility_value,
-                                    credibility_weight: 0,
-                                    validators: vec![pk.clone()],
-                                },
-                            ));
-                            if !(*group_info).1.validators.contains(&pk) {
-                                (*group_info).1.group_credibility_value += *credibility_value;
-                                (*group_info).1.validators.push(pk);
+                        for (msg_hash, validators) in groups {
+                            // let hash = msg.message.to_hash();
+                            // let pk = msg.validator.clone();
+                            for pk in validators {
+                                let credibility_value = credibility_map.get(&pk).unwrap_or(&0u32);
+                                let group_info = aggregation_result.entry(msg_hash.clone()).or_insert(
+                                    GroupCredibility {
+                                        group_credibility_value: *credibility_value,
+                                        credibility_weight: 0,
+                                        validators: vec![pk.clone()],
+                                    });
+                                if !(*group_info).validators.contains(&pk) {
+                                    (*group_info).group_credibility_value += *credibility_value;
+                                    (*group_info).validators.push(pk);
+                                }
+                                total_credibility += credibility_value;
                             }
-                            total_credibility += credibility_value;
                         }
 
-                        let mut sort_vec: Vec<(Message, GroupCredibility)> = aggregation_result
-                            .iter()
-                            .map(|(_, value)| {
+                        let mut sort_vec: Vec<(String, GroupCredibility)> = aggregation_result
+                            .into_iter()
+                            .map(|(msg_hash, value)| {
                                 let mut return_value = value.clone();
-                                return_value.1.credibility_weight =
-                                    value.1.group_credibility_value * 10000 / total_credibility;
-                                return_value
+                                return_value.credibility_weight =
+                                    value.group_credibility_value * 10000 / total_credibility;
+                                (msg_hash, return_value)
                             })
                             .collect();
                         sort_vec
@@ -157,13 +158,14 @@ impl Contract {
                             }
                         }
                         // let promise = Promise::new(self.node_ev_address);
+                        log!("gas_used: {}", env::used_gas().0);
                         ext_ec::update_nodes(
                             trusted,
                             untrusted,
                             exeception,
                             self.node_ev_address.clone(),
                             NO_DEPOSIT,
-                            env::prepaid_gas() - GAS_FOR_CREDIBILITY_CALLBACK,
+                            env::prepaid_gas() - GAS_FOR_CREDIBILITY_CALLBACK * 2,
                         );
                     }
                     Err(err) => {
@@ -205,12 +207,11 @@ impl ToHash for Message {
 
 #[near_bindgen]
 impl MsgVerify for Contract {
-    fn msg_verify(&mut self, msgs: Vec<MessageVerify>) -> Promise {
+    fn msg_verify(&mut self, groups: Vec<(String, Vec<PublicKey>)>) -> Promise {
         assert_eq!(env::predecessor_account_id(), self.cross_contract_id);
         let mut keys: Vec<PublicKey> = Vec::new();
-        for value in msgs.iter() {
-            keys.push(value.validator.clone());
-            // keys.push(value.validator.into());
+        for (_, validators) in groups.iter() {
+            keys.extend(validators.iter().cloned());
         }
         log!("msg_verify: {}", env::prepaid_gas().0);
         ext_ec::get_nodes_credibility(
@@ -220,7 +221,7 @@ impl MsgVerify for Contract {
             GAS_FOR_GET_NODES,
         )
         .then(ext_self::credibility_callback(
-            msgs,
+            groups,
             env::current_account_id(),
             0,
             env::prepaid_gas() - GAS_FOR_GET_NODES - GAS_FOR_MSG_VERIFY,

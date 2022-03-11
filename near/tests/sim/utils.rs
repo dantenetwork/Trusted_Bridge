@@ -2,7 +2,7 @@
  * @Description:
  * @Author: kay
  * @Date: 2022-02-24 11:22:04
- * @LastEditTime: 2022-03-09 17:44:02
+ * @LastEditTime: 2022-03-10 17:23:21
  * @LastEditors: kay
  */
 
@@ -142,7 +142,7 @@ pub fn call_receive_message(messages: Vec<(&[UserAccount], &Message)>) {
     let id: u32 = 1;
     for (validators, message) in messages {
         for validator in validators {
-            validator
+            let outcome = validator
                 .call(
                     CC_ID.parse().unwrap(),
                     "receive_message",
@@ -157,8 +157,9 @@ pub fn call_receive_message(messages: Vec<(&[UserAccount], &Message)>) {
                     .into_bytes(),
                     DEFAULT_GAS,
                     0,
-                )
-                .assert_success();
+                );
+                // .assert_success();
+            println!("{:?}", outcome.promise_results())
         }
     }
 }
